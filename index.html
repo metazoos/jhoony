@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>훈이의 유튜브 트렌드 영상 분석 프로그램</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --accent: #7cffa4;
+    --accent2: #ffde7c;
+    --accent3: #7cb4ff;
+    --text: #f0f0f5;
+    --text2: #8888a0;
+    --text3: #4a4a62;
+    --radius: 12px;
+    --radius-sm: 7px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(124,255,164,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(124,255,164,0.03) 1px, transparent 1px);
+    background-size: 48px 48px; pointer-events: none; z-index: 0;
+  }
+
+  /* Lock screen */
+  #lockScreen { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+  .lock-box { position: relative; z-index: 1; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 40px 32px; width: 100%; max-width: 340px; text-align: center; }
+  .lock-box::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.6; border-radius: var(--radius) var(--radius) 0 0; }
+  .lock-icon { font-size: 30px; margin-bottom: 14px; }
+  .lock-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+  .lock-sub { font-size: 13px; color: var(--text2); margin-bottom: 24px; line-height: 1.5; }
+  .lock-input { width: 100%; height: 46px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-size: 18px; font-family: 'Syne', monospace; padding: 0 14px; outline: none; text-align: center; letter-spacing: 0.2em; margin-bottom: 12px; transition: border-color 0.2s; }
+  .lock-input:focus { border-color: var(--accent); }
+  .lock-btn { width: 100%; height: 46px; background: var(--accent); color: #000; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; border: none; border-radius: var(--radius-sm); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+  .lock-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(124,255,164,0.3); }
+  .lock-error { font-size: 12px; color: #ff9a9a; margin-top: 10px; min-height: 16px; }
+  .lock-shake { animation: shake 0.4s ease; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} }
+
+  /* Main */
+  .wrap { position: relative; z-index: 1; max-width: 920px; margin: 0 auto; padding: 48px 24px 80px; }
+  .header { margin-bottom: 40px; }
+  .header-eyebrow { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .header-eyebrow::before { content: ''; display: inline-block; width: 18px; height: 1px; background: var(--accent); }
+  h1 { font-family: 'Syne', sans-serif; font-size: clamp(28px, 5vw, 44px); font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  .header-sub { margin-top: 10px; font-size: 14px; color: var(--text2); font-weight: 300; line-height: 1.6; }
+
+  .panel { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; position: relative; overflow: hidden; }
+  .panel::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.5; }
+  .panel-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text3); margin-bottom: 16px; }
+
+  .api-row { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .api-row label { font-size: 12px; font-weight: 500; color: var(--text2); white-space: nowrap; min-width: 52px; }
+  .api-row input { flex: 1; height: 38px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: monospace; font-size: 12px; padding: 0 14px; outline: none; transition: border-color 0.2s; }
+  .api-row input:focus { border-color: var(--accent); }
+
+  .search-row { display: flex; gap: 10px; margin-bottom: 16px; }
+  .search-row input { flex: 1; height: 46px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: 'Noto Sans KR', sans-serif; font-size: 14px; padding: 0 16px; outline: none; transition: border-color 0.2s; }
+  .search-row input::placeholder { color: var(--text3); }
+  .search-row input:focus { border-color: var(--accent); }
+  .btn-search { height: 46px; padding: 0 24px; background: var(--accent); color: #000; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; border: none; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; transition: transform 0.15s, box-shadow 0.15s; }
+  .btn-search:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(124,255,164,0.3); }
+  .btn-search:active { transform: translateY(0); }
+  .btn-search:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .filters { display: flex; gap: 10px; flex-wrap: wrap; }
+  .filter-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px; }
+  .filter-group label { font-size: 11px; color: var(--text3); font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+  .filter-group select { height: 36px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: 'Noto Sans KR', sans-serif; font-size: 13px; padding: 0 28px 0 10px; cursor: pointer; outline: none; transition: border-color 0.2s; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238888a0' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+  .filter-group select:focus { border-color: var(--accent); }
+
+  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; animation: fadeUp 0.4s ease both; }
+  .s-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; position: relative; overflow: hidden; }
+  .s-card::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; border-radius: 0 0 var(--radius) var(--radius); }
+  .s-card:nth-child(1)::after { background: var(--accent3); }
+  .s-card:nth-child(2)::after { background: var(--accent2); }
+  .s-card:nth-child(3)::after { background: var(--accent); }
+  .s-label { font-size: 11px; color: var(--text3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .s-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; line-height: 1; }
+  .s-card:nth-child(1) .s-value { color: var(--accent3); }
+  .s-card:nth-child(2) .s-value { color: var(--accent2); }
+  .s-card:nth-child(3) .s-value { color: var(--accent); }
+  .s-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+  .sort-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+  .sort-bar span { font-size: 12px; color: var(--text3); margin-right: 4px; }
+  .sort-btn { height: 28px; padding: 0 12px; background: transparent; border: 1px solid var(--border); border-radius: 100px; color: var(--text2); font-family: 'Noto Sans KR', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .sort-btn:hover { border-color: var(--border2); color: var(--text); }
+  .sort-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+  .result-meta { font-size: 12px; color: var(--text3); margin-bottom: 14px; }
+  .result-meta strong { color: var(--text2); }
+
+  .video-list { display: flex; flex-direction: column; gap: 10px; }
+  .video-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: grid; grid-template-columns: 140px 1fr auto; gap: 14px; align-items: center; transition: border-color 0.2s, background 0.2s, transform 0.15s; animation: fadeUp 0.35s ease both; }
+  .video-card:hover { border-color: var(--border2); background: var(--surface2); transform: translateX(3px); }
+  .video-card.rank-top { border-color: rgba(124,255,164,0.2); }
+  .video-card.rank-top:hover { border-color: rgba(124,255,164,0.45); }
+
+  .thumb-wrap { width: 140px; height: 79px; border-radius: 6px; overflow: hidden; background: var(--surface2); flex-shrink: 0; position: relative; cursor: pointer; display: block; text-decoration: none; }
+  .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s; }
+  .thumb-wrap:hover img { transform: scale(1.05); }
+  .thumb-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0); transition: background 0.2s; }
+  .thumb-wrap:hover .thumb-play { background: rgba(0,0,0,0.4); }
+  .play-icon { width: 28px; height: 28px; background: rgba(255,255,255,0.92); border-radius: 50%; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+  .thumb-wrap:hover .play-icon { opacity: 1; }
+
+  .video-body { min-width: 0; }
+  .video-rank { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; color: var(--text3); letter-spacing: 0.08em; margin-bottom: 4px; }
+  .rank-top .video-rank { color: var(--accent); }
+  .video-title { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.45; margin-bottom: 7px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .video-title a { color: inherit; text-decoration: none; }
+  .video-title a:hover { color: var(--accent3); }
+  .video-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--text2); }
+
+  .ratio-col { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 64px; }
+  .ratio-badge { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; padding: 5px 12px; border-radius: var(--radius-sm); line-height: 1; }
+  .ratio-s { background: rgba(124,255,164,0.12); color: var(--accent); }
+  .ratio-a { background: rgba(255,222,124,0.12); color: var(--accent2); }
+  .ratio-b { background: rgba(124,180,255,0.12); color: var(--accent3); }
+  .ratio-c { background: rgba(255,255,255,0.05); color: var(--text2); }
+  .ratio-grade { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 2px; }
+  .ratio-lbl { font-size: 10px; color: var(--text3); }
+
+  .state-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 52px 24px; text-align: center; }
+  .state-icon { font-size: 36px; margin-bottom: 14px; opacity: 0.35; }
+  .state-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--text2); margin-bottom: 6px; }
+  .state-sub { font-size: 13px; color: var(--text3); line-height: 1.6; }
+  .loading-bar { width: 80px; height: 2px; background: var(--surface2); border-radius: 2px; margin: 16px auto 0; overflow: hidden; }
+  .loading-bar-inner { height: 100%; background: var(--accent); border-radius: 2px; animation: loading 1.2s ease-in-out infinite; }
+  @keyframes loading { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
+
+  .error-box { background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.25); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; color: #ff9a9a; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 8px; }
+  .error-box::before { content: '⚠'; flex-shrink: 0; }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+  @media (max-width: 640px) {
+    .summary { grid-template-columns: 1fr 1fr; }
+    .summary .s-card:last-child { grid-column: 1 / -1; }
+    .video-card { grid-template-columns: 1fr; }
+    .thumb-wrap { width: 100%; height: 190px; }
+    .ratio-col { flex-direction: row; justify-content: flex-start; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Lock Screen -->
+<div id="lockScreen">
+  <div class="lock-box" id="lockBox">
+    <div class="lock-icon">🔒</div>
+    <div class="lock-title">접근 제한</div>
+    <div class="lock-sub">승인된 사용자만 이용할 수 있습니다.<br>비밀번호를 입력하세요.</div>
+    <input class="lock-input" type="password" id="lockPw" placeholder="••••••" maxlength="20" />
+    <button class="lock-btn" onclick="checkPassword()">입장하기</button>
+    <div class="lock-error" id="lockError"></div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div class="wrap" id="appWrap" style="display:none;">
+  <header class="header">
+    <div class="header-eyebrow">훈이의 유튜브 분석 도구</div>
+    <h1>훈이의 유튜브<br><span>트렌드 영상 분석</span></h1>
+    <p class="header-sub">구독자 대비 조회수 배율이 높은 영상을 찾아 벤치마킹하세요.</p>
+  </header>
+
+  <div class="panel">
+    <div class="panel-title">설정</div>
+    <div class="api-row">
+      <label>API 키</label>
+      <input type="password" id="apiKey" placeholder="YouTube Data API v3 키 입력" />
+    </div>
+    <div class="search-row">
+      <input type="text" id="keyword" placeholder="키워드 입력 (예: 요리, 재테크, 브이로그) — 비워두면 인기 영상 전체" />
+      <button class="btn-search" id="searchBtn" onclick="fetchVideos()">검색</button>
+    </div>
+    <div class="filters">
+      <div class="filter-group">
+        <label>기간</label>
+        <select id="period">
+          <option value="7">최근 7일</option>
+          <option value="14">최근 14일</option>
+          <option value="30">최근 30일</option>
+          <option value="90">최근 3개월</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>지역</label>
+        <select id="region">
+          <option value="KR">🇰🇷 한국</option>
+          <option value="US">🇺🇸 미국</option>
+          <option value="JP">🇯🇵 일본</option>
+          <option value="">🌐 전체</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>최소 배율</label>
+        <select id="minRatio">
+          <option value="0">제한 없음</option>
+          <option value="1">1x 이상</option>
+          <option value="2">2x 이상</option>
+          <option value="5">5x 이상</option>
+          <option value="10">10x 이상</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>결과 수</label>
+        <select id="maxResults">
+          <option value="10">10개</option>
+          <option value="25" selected>25개</option>
+          <option value="50">50개</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="errorBox" style="display:none;" class="error-box"></div>
+
+  <div id="summaryArea" style="display:none;" class="summary">
+    <div class="s-card"><div class="s-label">분석 영상</div><div class="s-value" id="s-total">—</div><div class="s-sub">개 영상</div></div>
+    <div class="s-card"><div class="s-label">평균 배율</div><div class="s-value" id="s-avg">—</div><div class="s-sub">구독자 대비 조회수</div></div>
+    <div class="s-card"><div class="s-label">최고 배율</div><div class="s-value" id="s-max">—</div><div class="s-sub" id="s-max-ch">—</div></div>
+  </div>
+
+  <div id="mainArea">
+    <div class="state-box">
+      <div class="state-icon">▶</div>
+      <div class="state-title">검색을 시작하세요</div>
+      <div class="state-sub">API 키와 키워드를 입력하고 검색 버튼을 누르면<br>구독자 대비 조회수 배율이 높은 영상 목록을 보여드립니다.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════
+//  비밀번호 설정 — 여기서 바꾸세요
+const ACCESS_PASSWORD = '231010';
+// ════════════════════════════════
+
+let allResults = [];
+let currentSort = 'ratio';
+
+function checkPassword() {
+  const pw = document.getElementById('lockPw').value;
+  if (pw === ACCESS_PASSWORD) {
+    document.getElementById('lockScreen').style.display = 'none';
+    document.getElementById('appWrap').style.display = 'block';
+    sessionStorage.setItem('yt_auth', '1');
+  } else {
+    const box = document.getElementById('lockBox');
+    document.getElementById('lockError').textContent = '비밀번호가 올바르지 않습니다.';
+    box.classList.remove('lock-shake');
+    void box.offsetWidth;
+    box.classList.add('lock-shake');
+    document.getElementById('lockPw').value = '';
+    document.getElementById('lockPw').focus();
+  }
+}
+
+if (sessionStorage.getItem('yt_auth') === '1') {
+  document.getElementById('lockScreen').style.display = 'none';
+  document.getElementById('appWrap').style.display = 'block';
+}
+document.getElementById('lockPw').addEventListener('keydown', e => { if(e.key==='Enter') checkPassword(); });
+
+function fmt(n) {
+  if (n >= 100000000) return Math.round(n/100000000) + '억';
+  if (n >= 10000000) return (n/10000000).toFixed(1) + '천만';
+  if (n >= 10000) return Math.round(n/10000) + '만';
+  if (n >= 1000) return (n/1000).toFixed(1) + 'k';
+  return String(n);
+}
+function ago(d) {
+  const diff = (Date.now() - new Date(d)) / 86400000;
+  if (diff < 1) return '오늘';
+  if (diff < 2) return '1일 전';
+  return Math.floor(diff) + '일 전';
+}
+function ratioInfo(r) {
+  if (r >= 10) return { cls: 'ratio-s', rank: 'S', label: '극강 바이럴', color: '#7cffa4' };
+  if (r >= 5)  return { cls: 'ratio-a', rank: 'A', label: '높은 성과',   color: '#ffde7c' };
+  if (r >= 2)  return { cls: 'ratio-b', rank: 'B', label: '양호',        color: '#7cb4ff' };
+  return           { cls: 'ratio-c', rank: 'C', label: '보통',        color: '#8888a0' };
+}
+function showError(msg) { const el = document.getElementById('errorBox'); el.textContent = msg; el.style.display = 'flex'; }
+function hideError() { document.getElementById('errorBox').style.display = 'none'; }
+function setLoading(on) { const btn = document.getElementById('searchBtn'); btn.disabled = on; btn.textContent = on ? '검색 중...' : '검색'; }
+
+function renderCards() {
+  const minRatio = parseFloat(document.getElementById('minRatio').value) || 0;
+  let data = allResults.filter(v => v.ratio >= minRatio);
+  if (currentSort === 'ratio') data.sort((a,b) => b.ratio - a.ratio);
+  else if (currentSort === 'views') data.sort((a,b) => b.views - a.views);
+  else data.sort((a,b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
+  const sumEl = document.getElementById('summaryArea');
+  if (data.length > 0) {
+    sumEl.style.display = 'grid';
+    document.getElementById('s-total').textContent = data.length;
+    document.getElementById('s-avg').textContent = (data.reduce((s,v)=>s+v.ratio,0)/data.length).toFixed(1) + 'x';
+    document.getElementById('s-max').textContent = data[0].ratio.toFixed(1) + 'x';
+    document.getElementById('s-max-ch').textContent = data[0].channelTitle;
+  } else { sumEl.style.display = 'none'; }
+
+  const area = document.getElementById('mainArea');
+  if (data.length === 0) {
+    area.innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><div class="state-title">결과 없음</div><div class="state-sub">조건에 맞는 영상이 없습니다.</div></div>`;
+    return;
+  }
+
+  const sortBar = `<div class="sort-bar"><span>정렬</span>
+    <button class="sort-btn ${currentSort==='ratio'?'active':''}" onclick="setSort('ratio')">배율순</button>
+    <button class="sort-btn ${currentSort==='views'?'active':''}" onclick="setSort('views')">조회수순</button>
+    <button class="sort-btn ${currentSort==='date'?'active':''}" onclick="setSort('date')">최신순</button>
+  </div><div class="result-meta"><strong>${data.length}개</strong> 영상 발견</div>`;
+
+  const cards = data.map((v, i) => {
+    const ri = ratioInfo(v.ratio);
+    const isTop = v.ratio >= 5;
+    const delay = Math.min(i * 0.04, 0.4);
+    const thumb = `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`;
+    return `
+      <div class="video-card ${isTop?'rank-top':''}" style="animation-delay:${delay}s">
+        <a href="https://youtube.com/watch?v=${v.id}" target="_blank" class="thumb-wrap">
+          <img src="${thumb}" alt="" loading="lazy" />
+          <div class="thumb-play">
+            <div class="play-icon">
+              <svg width="10" height="12" viewBox="0 0 10 12" fill="#111"><path d="M0 0l10 6-10 6z"/></svg>
+            </div>
+          </div>
+        </a>
+        <div class="video-body">
+          <div class="video-rank">${isTop ? '★ ' : ''}#${i+1}</div>
+          <div class="video-title"><a href="https://youtube.com/watch?v=${v.id}" target="_blank">${v.title}</a></div>
+          <div class="video-meta">
+            <span>📺 ${v.channelTitle}</span>
+            <span>👥 ${fmt(v.subscribers)}</span>
+            <span>👁 ${fmt(v.views)}</span>
+            <span>🕐 ${ago(v.publishedAt)}</span>
+          </div>
+        </div>
+        <div class="ratio-col">
+          <div class="ratio-badge ${ri.cls}">${v.ratio.toFixed(1)}x</div>
+          <div class="ratio-grade" style="color:${ri.color}">${ri.rank}등급</div>
+          <div class="ratio-lbl">${ri.label}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  area.innerHTML = sortBar + `<div class="video-list">${cards}</div>`;
+}
+
+function setSort(s) { currentSort = s; renderCards(); }
+
+async function fetchVideos() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const keyword = document.getElementById('keyword').value.trim();
+  const period = parseInt(document.getElementById('period').value);
+  const region = document.getElementById('region').value;
+  const maxResults = parseInt(document.getElementById('maxResults').value);
+
+  if (!apiKey) { showError('YouTube Data API v3 키를 입력해주세요.'); return; }
+  hideError(); setLoading(true);
+
+  const area = document.getElementById('mainArea');
+  document.getElementById('summaryArea').style.display = 'none';
+  area.innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><div class="state-title">영상 검색 중...</div><div class="state-sub">잠시만 기다려주세요.</div><div class="loading-bar"><div class="loading-bar-inner"></div></div></div>`;
+
+  try {
+    const after = new Date(Date.now() - period * 86400000).toISOString();
+    let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&order=viewCount&maxResults=${maxResults}&publishedAfter=${after}&key=${apiKey}`;
+    if (keyword) url += `&q=${encodeURIComponent(keyword)}`;
+    if (region) url += `&regionCode=${region}`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.error) { showError('API 오류: ' + data.error.message); area.innerHTML = ''; setLoading(false); return; }
+
+    const items = data.items || [];
+    if (!items.length) {
+      area.innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><div class="state-title">결과 없음</div><div class="state-sub">검색 결과가 없습니다. 키워드를 변경해보세요.</div></div>`;
+      setLoading(false); return;
+    }
+
+    area.innerHTML = `<div class="state-box"><div class="state-icon">📊</div><div class="state-title">채널 정보 수집 중...</div><div class="state-sub">${items.length}개 영상의 구독자 데이터를 가져오는 중입니다.</div><div class="loading-bar"><div class="loading-bar-inner"></div></div></div>`;
+
+    const videoIds = items.map(i => i.id.videoId).join(',');
+    const channelIds = [...new Set(items.map(i => i.snippet.channelId))].join(',');
+
+    const [vRes, cRes] = await Promise.all([
+      fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${videoIds}&key=${apiKey}`),
+      fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelIds}&key=${apiKey}`)
+    ]);
+    const vData = await vRes.json();
+    const cData = await cRes.json();
+
+    const vStats = {};
+    (vData.items||[]).forEach(v => { vStats[v.id] = v.statistics; });
+    const chStats = {};
+    (cData.items||[]).forEach(c => { chStats[c.id] = parseInt(c.statistics.subscriberCount||0); });
+
+    allResults = items.map(item => {
+      const vid = item.id.videoId;
+      const s = vStats[vid] || {};
+      const views = parseInt(s.viewCount||0);
+      const subs = chStats[item.snippet.channelId] || 1;
+      return { id: vid, title: item.snippet.title, channelTitle: item.snippet.channelTitle, channelId: item.snippet.channelId, publishedAt: item.snippet.publishedAt, views, subscribers: subs, ratio: subs > 0 ? views / subs : 0 };
+    }).filter(v => v.views > 0);
+
+    renderCards();
+  } catch(e) {
+    showError('오류가 발생했습니다: ' + e.message);
+    area.innerHTML = '';
+  } finally { setLoading(false); }
+}
+
+document.getElementById('keyword').addEventListener('keydown', e => { if(e.key==='Enter') fetchVideos(); });
+document.getElementById('minRatio').addEventListener('change', () => { if(allResults.length) renderCards(); });
+document.getElementById('apiKey').addEventListener('input', e => { localStorage.setItem('yt_api_key', e.target.value); });
+const savedKey = localStorage.getItem('yt_api_key');
+if (savedKey) document.getElementById('apiKey').value = savedKey;
+</script>
+</body>
+</html>
