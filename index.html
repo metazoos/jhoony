@@ -64,7 +64,7 @@
   .api-row input { flex: 1; height: 38px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: monospace; font-size: 12px; padding: 0 14px; outline: none; transition: border-color 0.2s; }
   .api-row input:focus { border-color: var(--accent); }
 
-  .search-row { display: flex; gap: 10px; margin-bottom: 16px; }
+  .search-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
   .search-row input { flex: 1; height: 46px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: 'Noto Sans KR', sans-serif; font-size: 14px; padding: 0 16px; outline: none; transition: border-color 0.2s; }
   .search-row input::placeholder { color: var(--text3); }
   .search-row input:focus { border-color: var(--accent); }
@@ -145,6 +145,8 @@
   @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 
   @media (max-width: 640px) {
+    .search-row { flex-direction: column; }
+    .btn-search { width: 100%; }
     .summary { grid-template-columns: 1fr 1fr; }
     .summary .s-card:last-child { grid-column: 1 / -1; }
     .video-card { grid-template-columns: 1fr; }
@@ -245,7 +247,7 @@
 <script>
 
 
-const _k = atob('MjMxMDEw');
+const _k = atob('MjMxMDMw');
 
 
 let allResults = [];
